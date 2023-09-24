@@ -3,8 +3,8 @@
   tasks:
     - amazon.aws.ec2_instance:
         name: "ansible-zerodha-instance"
-        access_key: AKIA5EUYDO2TG7X2SQ4M 
-        secret_key: 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 
+        access_key: access_key 
+        secret_key: secret_key 
         key_name: "mayankansible"
         vpc_subnet_id: subnet-0409a2f8a86047118	
         instance_type: t3.micro
