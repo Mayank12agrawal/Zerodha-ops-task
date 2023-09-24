@@ -1,0 +1,92 @@
+- name: Launch EC2 instance, get public IP, and install Nginx
+  hosts: localhost
+  tasks:
+    - amazon.aws.ec2_instance:
+        name: "ansible-zerodha-instance"
+        access_key: AKIA5EUYDO2TG7X2SQ4M 
+        secret_key: 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 
+        key_name: "mayankansible"
+        vpc_subnet_id: subnet-0409a2f8a86047118	
+        instance_type: t3.micro
+        security_group: default
+        network:
+          assign_public_ip: true
+        image_id: ami-0f5ee92e2d63afc18
+        tags:
+          Environment: Testing
+      register: ec2
+    - name: Create SSH Group to login dynamically to EC2 Instance
+      add_host: 
+        hostname: "3.108.65.233"
+        ansible_ssh_private_key_file: /home/unthinkable-lap-0286/Downloads/mayankansible.pem
+        groupname: ec2_server
+      with_items: ec2.instances
+
+    - name: Wait for SSH to come up
+      wait_for: 
+        host: "3.108.65.233" 
+        port: 22 
+        state: started
+      with_items: ec2.instances
+
+    - name: Install Nginx
+      become: yes
+      ansible.builtin.shell: "sudo apt-get update && sudo apt-get install -y nginx"
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+
+    - name: Allow SSH and enable UFW
+      become: yes
+      ansible.builtin.shell: |
+        sudo ufw allow OpenSSH
+        sudo ufw --force enable
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+
+    - name: Increase Open Files Limit
+      become: yes
+      ansible.builtin.sysctl:
+        name: fs.file-max
+        value: 65536
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+
+    - name: Change Kernel PID Max
+      become: yes
+      ansible.builtin.sysctl:
+        name: kernel.pid_max
+        value: 65535
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+    
+
+    - name: Set Timezone to Asia/Kolkata
+      ansible.builtin.shell: |
+        sudo timedatectl set-timezone Asia/Kolkata
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+
+    - name: Install docker and docker compose
+      ansible.builtin.shell: |
+        sudo apt-get update -y
+        sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+        sudo chmod 777 /var/run/docker.sock
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+
+    - name: Copy All data to ubuntu
+      ansible.builtin.copy:
+        src: /home/unthinkable-lap-0286/Downloads/ops-interview-task-master/
+        dest: /home/ubuntu
+        owner: ubuntu
+        group: ubuntu
+        mode: u+rw,g-wx,o-rwx
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
+
+    - name: Deploy Dockercompsoe
+      ansible.builtin.shell: |
+        cd /home/ubuntu
+        docker compose up -d
+      delegate_to: "3.108.65.233"
+      remote_user: "ubuntu"
